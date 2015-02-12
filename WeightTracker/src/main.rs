@@ -23,7 +23,7 @@ fn input_weights() {
     let mut date = "2015.11.02";
     loop {
         print!("{}\t", date);
-        let user_input = old_io::stdin().read_line().ok().expect("Failed to readinput");
+        let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
         let weight: Option<f32> = validate_weight_input(&user_input);
         match weight {
             Some(weight) => save_weight_to_file(date, weight),
