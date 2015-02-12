@@ -3,34 +3,53 @@
 
 use std::old_io;
 
+struct WeightAtDate {
+    date: String,
+    weight: f32
+}
+
+enum Action {
+    InputWeights,
+    Exit,
+    Unknown(String)
+}
+
 fn main() {
+    let mut weights = Vec::<WeightAtDate>::new();
+    
     loop {
         let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
-        let cont = process_input(user_input.trim());
-        if !cont {return;}
+        match process_input(user_input.trim()) {
+            Action::InputWeights => input_weights(&mut weights),
+            Action::Exit => return,
+            Action::Unknown(s) => println!("Invalid input: {}", s)
+        }
     }
 }
 
-fn process_input(input: &str) -> bool {
+fn process_input(input: &str) -> Action {
     match input {
-        "i" | "I" => input_weights(),
-        _ => return false
-    };
-    false
+        "i" | "I" => Action::InputWeights,
+        "x" | "X" => Action::Exit,
+        _ => Action::Unknown(input.to_string())
+    }
 }
 
-fn input_weights() {
+fn input_weights(weights: &mut Vec<WeightAtDate>) {
     let mut date = "2015.02.11".to_string();
     loop {
         print!("{}\t", date);
         let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
         let weight = validate_weight_input(user_input.trim().parse::<f32>());
         match weight {
-            Some(weight) => save_weight_to_file(&date, weight),
+            Some(weight) => weights.push(WeightAtDate {date: date.clone(), weight: weight}),
             None => {
                 if valid_date_input(&user_input) { date = user_input.trim().to_string(); }
             }
         }
+        println!("\nWeights inserted so far:\n");
+        for element in weights.iter() { println!("{}: {}", element.date, element.weight); }
+        println!("");
     }
 }
 
@@ -89,9 +108,4 @@ fn correct_year_input(year_input: &str) -> bool {
         Option::Some(_) => true,
         Option::None => false
     }
-}
-
-fn save_weight_to_file(date: &str, weight: f32) {
-    // TODO: implement
-    println!("Saved to file:\t{}: {}", date, weight);
 }
