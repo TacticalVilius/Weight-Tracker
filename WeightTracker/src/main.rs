@@ -6,8 +6,8 @@ use std::old_io;
 fn main() {
     loop {
         let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
-        let exit = process_input(&user_input);
-        if exit {return;}
+        let cont = process_input(user_input.trim());
+        if !cont {return;}
     }
 }
 
@@ -20,25 +20,22 @@ fn process_input(input: &str) -> bool {
 }
 
 fn input_weights() {
-    let mut date = "2015.11.02";
+    let mut date = "2015.02.11".to_string();
     loop {
         print!("{}\t", date);
         let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
-        let weight: Option<f32> = validate_weight_input(&user_input);
+        let weight = validate_weight_input(user_input.trim().parse::<f32>());
         match weight {
-            Some(weight) => save_weight_to_file(date, weight),
+            Some(weight) => save_weight_to_file(&date, weight),
             None => {
-                match validate_date_input(&user_input) {
-                    Option::Some(new_date) => date = new_date,
-                    Option::None => continue
-                }
+                if valid_date_input(&user_input) { date = user_input.trim().to_string(); }
             }
         }
     }
 }
 
-fn validate_weight_input(weight_input: &str) -> Option<f32> {
-    match weight_input.trim().parse::<f32>() {
+fn validate_weight_input(input: Option<f32>) -> Option<f32> {
+    match input {
         Some(weight) => {
             if weight < 0.0 { Option::None }
             else { Option::Some(weight) }
@@ -47,20 +44,18 @@ fn validate_weight_input(weight_input: &str) -> Option<f32> {
     }
 }
 
-fn validate_date_input(date_input: &str) -> Option<&str> {
+fn valid_date_input(date_input: &str) -> bool {
     let parts: Vec<&str> = date_input.trim().split('.').collect();
-    if parts.len() < 2 || parts.len() > 3 { return Option::None; }
+    if parts.len() != 3 { return false; }
     
-    let month = match get_month_input(parts[parts.len() - 2]) {
+    if !correct_year_input(parts[0]) { return false; }
+    let month = match validate_month_input(parts[1].parse::<u8>()) {
         Option::Some(month) => month,
-        Option::None => return Option::None
+        Option::None => return false
     };
-    if !correct_day_input(parts[parts.len() - 1], month) { return Option::None; }
-    if parts.len() == 3 {
-        if !correct_year_input(parts[0]) { return Option::None; }
-    }
+    if !correct_day_input(parts[2], month) { return false; }
     
-    Option::Some(date_input)
+    true
 }
 
 fn correct_day_input(day_input: &str, month: u8) -> bool {
@@ -79,13 +74,13 @@ fn correct_day_input(day_input: &str, month: u8) -> bool {
     }
 }
 
-fn get_month_input(month_input: &str) -> Option<u8> {
-    match month_input.parse::<u8>() {
-        Option::Some(month) => {
-            if month > 0 && month < 13 { return Option::Some(month); }
-            else { return Option::None; }
+fn validate_month_input(month_input: Option<u8>) -> Option<u8> {
+    match month_input {
+        Some(month) => {
+            if month > 0 && month < 13 { return Some(month); }
+            else { return None; }
         },
-        Option::None => return Option::None
+        None => return None
     }
 }
 
@@ -97,5 +92,6 @@ fn correct_year_input(year_input: &str) -> bool {
 }
 
 fn save_weight_to_file(date: &str, weight: f32) {
-
+    // TODO: implement
+    println!("Saved to file:\t{}: {}", date, weight);
 }
