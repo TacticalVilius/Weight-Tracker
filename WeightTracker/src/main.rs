@@ -23,6 +23,7 @@ fn main() {
     populate_weights_map(&mut weights, &mut file);
     
     loop {
+        print_data(&weights);
         let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
         match process_input(user_input.trim()) {
             Action::InputWeights => input_weights(&mut weights),
@@ -37,6 +38,96 @@ fn main() {
             Action::Unknown(s) => println!("Invalid input: {}", s)
         }
     }
+}
+
+fn print_data(weights: &HashMap<String, f32>) {
+    let earliest_date = weights.iter().fold("9999.99.99".to_string(),
+                                            |s, (date, _)| min_date(&s, &date).to_string()
+                                            );
+    
+    let last_date = weights.iter().fold("0000.01.01".to_string(),
+                                        |s, (date, _)| max_date(&s, &date).to_string()
+                                        );
+    
+    let mut week_window_mid_avgs = HashMap::new();
+    let mut week_window_end_avgs = HashMap::new();
+    
+    calculate_week_window_mid_avgs(&weights, &mut week_window_mid_avgs, &earliest_date, &last_date);
+    calculate_week_window_end_avgs(&weights, &week_window_end_avgs, &earliest_date, &last_date);
+    
+    let mut date = earliest_date;
+    while date != last_date {
+        let extractor = |h_map: &HashMap<String, f32>, key: &str| {
+            match h_map.get(key) {
+                Option::Some(f) => f.to_string(),
+                Option::None => "---".to_string()
+            }
+        };
+        println!("{}:\t{}\t{}\t{}", date, extractor(&weights, &date), extractor(&week_window_mid_avgs, &date), extractor(&week_window_end_avgs, &date));
+        let (year, month, day) = date_from_str(&date);
+        let (new_year, new_month, new_day) = add_days_to_date(year, month, day, 1);
+        date = str_from_date(new_year, new_month, new_day);
+    }
+}
+
+fn min_date<'a>(date1: &'a str, date2: &'a str) -> &'a str {
+    let (year1, month1, day1) = date_from_str(&date1);
+    let (year2, month2, day2) = date_from_str(&date2);
+    if year2 < year1 { date2 }
+    else if year2 > year1 { date1 }
+    else if month2 < month1 { date2 }
+    else if month2 > month1 { date1 }
+    else if day2 < day1 { date2 }
+    else { date1 }
+}
+
+fn max_date<'a>(date1: &'a str, date2: &'a str) -> &'a str {
+    let (year1, month1, day1) = date_from_str(&date1);
+    let (year2, month2, day2) = date_from_str(&date2);
+    if year2 > year1 { date2 }
+    else if year2 < year1 { date1 }
+    else if month2 > month1 { date2 }
+    else if month2 < month1 { date1 }
+    else if day2 > day1 { date2 }
+    else { date1 }
+}
+
+fn calculate_week_window_mid_avgs(weights: &HashMap<String, f32>, result: &mut HashMap<String, f32>, start_date: &str, end_date: &str) {
+    let mut date = start_date.to_string();
+    
+    let (end_year, end_month, end_day) = date_from_str(end_date);
+    let (end_year_, end_month_, end_day_) = add_days_to_date(end_year, end_month, end_day, 1);
+    let beyond_end_date = str_from_date(end_year_, end_month_, end_day_).to_string();
+    
+    while date != beyond_end_date {
+        let (date_year, date_month, date_day) = date_from_str(&date);
+        
+        let (week_start_year, week_start_month, week_start_day) = subtract_days_from_date(date_year, date_month, date_day, 3);
+        let mut cur_date = str_from_date(week_start_year, week_start_month, week_start_day);
+        
+        let (week_end_year, week_end_month, week_end_day) = add_days_to_date(date_year, date_month, date_day, 4);
+        let mut week_end_date = str_from_date(week_end_year, week_end_month, week_end_day);
+        
+        let mut sum = 0.0_f32;
+        let mut count = 0_u8;
+        while cur_date != week_end_date {
+            match weights.get(&cur_date) {
+                Option::Some(&weight) => {
+                    sum = sum + weight;
+                    count = count + 1;
+                },
+                Option::None => continue
+            }
+        }
+        if count >= 4 { result.insert(date.clone(), sum / (count as f32)); }
+        
+        let (next_year, next_month, next_day) = add_days_to_date(date_year, date_month, date_day, 1);
+        date = str_from_date(next_year, next_month, next_day);
+    }
+}
+
+fn calculate_week_window_end_avgs(weights: &HashMap<String, f32>, result: &HashMap<String, f32>, start_date: &str, end_date: &str) {
+
 }
 
 fn save_weights_to_file(weights: &HashMap<String, f32>, file: &mut File) {
