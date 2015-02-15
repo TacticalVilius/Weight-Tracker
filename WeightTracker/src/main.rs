@@ -1,7 +1,9 @@
 #![feature(io)]
+#![feature(path)]
 
 use std::old_io;
 use std::collections::HashMap;
+use std::old_io::{File, Open, ReadWrite};
 
 enum Action {
     InputWeights,
@@ -10,7 +12,15 @@ enum Action {
 }
 
 fn main() {
+    let path = Path::new("data.dat");
+    
+    let mut file = match File::open_mode(&path, old_io::Open, old_io::ReadWrite) {
+        Ok(f) => f,
+        Err(why) => panic!("Could not open data file {}: {}", path.display(), why.desc)
+    };
+    
     let mut weights = HashMap::new();
+    populate_weights_map(&mut weights, &mut file);
     
     loop {
         let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
@@ -19,6 +29,31 @@ fn main() {
             Action::Exit => return,
             Action::Unknown(s) => println!("Invalid input: {}", s)
         }
+    }
+}
+
+fn populate_weights_map(weights_map: &mut HashMap<String, f32>, file: &mut File) {
+    let file_contents = file.read_to_string().ok().expect("Could not read data from file");
+    for line in file_contents.split('\n') {
+        let line_parts: Vec<&str> = line.split(':').map(|x| x.trim()).collect();
+        if line_parts.len() != 2 {
+            println!("Corrupted data in file {}: {}", file.path().display(), line);
+            continue;
+        }
+        let date =
+            if valid_date(line_parts[0]) { line_parts[0].to_string() }
+            else {
+                println!("Corrupted data in file {}: {}", file.path().display(), line);
+                continue;
+            };
+        let weight = match line_parts[1].parse::<f32>().ok() {
+            Option::Some(f) => f,
+            Option::None => {
+                println!("Corrupted data in file {}: {}", file.path().display(), line);
+                continue;
+            }
+        };
+        weights_map.insert(date.clone(), weight);
     }
 }
 
@@ -34,12 +69,18 @@ fn input_weights(weights: &mut HashMap<String, f32>) {
     let mut date = "2015.02.11".to_string();
     loop {
         print_weights(&date, weights, 4);
+        print!("\n{}:\t", date);
         let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
         let weight = validate_weight_input(user_input.trim().parse::<f32>().ok());
         match weight {
-            Some(weight) => { weights.insert(date.clone(), weight); },
+            Some(weight) => {
+                weights.insert(date.clone(), weight);
+                let (year, month, day) = date_from_str(&date);
+                let (new_year, new_month, new_day) = add_days_to_date(year, month, day, 1);
+                date = str_from_date(new_year, new_month, new_day);
+            },
             None => {
-                if valid_date_input(&user_input) { date = user_input.trim().to_string(); }
+                if valid_date(&user_input) { date = user_input.trim().to_string(); }
             }
         }
         println!("\nWeights inserted so far:\n");
@@ -142,8 +183,8 @@ fn validate_weight_input(input: Option<f32>) -> Option<f32> {
     }
 }
 
-fn valid_date_input(date_input: &str) -> bool {
-    let parts: Vec<&str> = date_input.trim().split('.').collect();
+fn valid_date(date: &str) -> bool {
+    let parts: Vec<&str> = date.trim().split('.').collect();
     if parts.len() != 3 { return false; }
     
     if !correct_year_input(parts[0]) { return false; }
