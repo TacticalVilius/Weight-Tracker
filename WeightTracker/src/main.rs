@@ -26,15 +26,30 @@ fn main() {
         let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
         match process_input(user_input.trim()) {
             Action::InputWeights => input_weights(&mut weights),
-            Action::Exit => return,
+            Action::Exit => {
+                file = match File::open_mode(&path, old_io::Truncate, old_io::Write) {
+                    Ok(f) => f,
+                    Err(why) => panic!("Could not open date file {}: {}", path.display(), why.desc)
+                };
+                save_weights_to_file(&weights, &mut file);
+                return;
+            }
             Action::Unknown(s) => println!("Invalid input: {}", s)
         }
     }
 }
 
+fn save_weights_to_file(weights: &HashMap<String, f32>, file: &mut File) {
+    let write_str = weights.iter().fold("".to_string(), |s, (date, weight)| s + date + ": " + &weight.to_string() + "\n");
+    match file.write_str(&write_str) {
+        Err(why) => panic!("Could not write to {}: {}", file.path().display(), why.desc),
+        Ok(_) => return
+    }
+}
+
 fn populate_weights_map(weights_map: &mut HashMap<String, f32>, file: &mut File) {
     let file_contents = file.read_to_string().ok().expect("Could not read data from file");
-    for line in file_contents.split('\n') {
+    for line in file_contents.lines() {
         let line_parts: Vec<&str> = line.split(':').map(|x| x.trim()).collect();
         if line_parts.len() != 2 {
             println!("Corrupted data in file {}: {}", file.path().display(), line);
@@ -71,6 +86,11 @@ fn input_weights(weights: &mut HashMap<String, f32>) {
         print_weights(&date, weights, 4);
         print!("\n{}:\t", date);
         let user_input = old_io::stdin().read_line().ok().expect("Failed to read input");
+        match process_input(user_input.trim()) {
+            Action::Exit => return,
+            Action::Unknown(_) => {},
+            _ => continue
+        }
         let weight = validate_weight_input(user_input.trim().parse::<f32>().ok());
         match weight {
             Some(weight) => {
